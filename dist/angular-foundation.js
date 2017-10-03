@@ -70,7 +70,7 @@
      * angular-foundation-6
      * http://circlingthesun.github.io/angular-foundation-6/
     
-     * Version: 0.11.11 - 2017-10-02
+     * Version: 0.11.11 - 2017-10-03
      * License: MIT
      * (c) 
      */
@@ -2881,6 +2881,7 @@
                         var tooltipLinker = $compile(template);
 
                         return function link(scope, element, attrs) {
+                            var $body = angular.element(document.querySelector('body'));
                             var tooltip;
                             var popupTimeout;
                             var appendToBody = angular.isDefined(options.appendToBody) ? options.appendToBody : false;
@@ -2899,6 +2900,12 @@
                                 ttWidth = tooltip.prop('offsetWidth');
                                 ttHeight = tooltip.prop('offsetHeight');
 
+                                var scrollTop = $window.pageYOffset;
+                                if (scope.tt_placement === 'top' && position.top - scrollTop - ttHeight - 20 < 0) {
+                                    scope.tt_placement = 'bottom';
+                                }
+
+                                var tt_remSize = parseFloat(getComputedStyle(tooltip[0]).fontSize);
                                 // Calculate the tooltip's top and left coordinates to center it with
                                 // this directive.
                                 switch (scope.tt_placement) {
@@ -2911,7 +2918,7 @@
                                     case 'bottom':
                                         ttPosition = {
                                             top: position.top + position.height + 10,
-                                            left: position.left - ttWidth / 2 + position.width / 2
+                                            left: position.left - 2.25 * tt_remSize + element[0].offsetWidth / 2
                                         };
                                         break;
                                     case 'left':
@@ -2921,9 +2928,10 @@
                                         };
                                         break;
                                     default:
+                                        //top
                                         ttPosition = {
                                             top: position.top - ttHeight - 10,
-                                            left: position.left - ttWidth / 2 + position.width / 2
+                                            left: position.left - 2.25 * tt_remSize + element[0].offsetWidth / 2
                                         };
                                         break;
                                 }
@@ -2959,6 +2967,23 @@
                                     }, angular.noop);
                                 } else {
                                     show()();
+                                }
+                            }
+
+                            function closeOnClick(e) {
+                                var elementContents = Array.prototype.slice.apply(element[0].querySelectorAll('*'));
+
+                                if (!elementContents.length) {
+                                    return;
+                                }
+
+                                var isOuterElement = elementContents.every(function (node) {
+                                    return node !== e.target;
+                                });
+
+                                if (isOuterElement) {
+                                    hide();
+                                    scope.$apply();
                                 }
                             }
 

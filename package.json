@@ -46,7 +46,6 @@
     "karma-generic-preprocessor": "^1.1.0",
     "karma-jasmine": "~0.3.6",
     "karma-jspm": "^2.0.2",
-    "lodash": "^4.0.0",
     "marked": "^0.3.5",
     "merge-stream": "^1.0.0",
     "motion-ui": "^1.2.2",
@@ -62,17 +61,18 @@
   "jspmNodeConversion": false,
   "jspm": {
     "dependencies": {
-      "angular": "github:angular/bower-angular@~1.5.10",
-      "angular-animate": "github:angular/bower-angular-animate@~1.5.10",
-      "angular-touch": "github:angular/bower-angular-touch@~1.5.10"
+      "angular": "github:angular/bower-angular@~1.6.6",
+      "angular-animate": "github:angular/bower-angular-animate@~1.6.6",
+      "angular-touch": "github:angular/bower-angular-touch@~1.6.6"
     },
     "devDependencies": {
-      "angular-legacy": "github:angular/bower-angular@~1.5.10",
-      "angular-mocks": "github:angular/bower-angular-mocks@~1.5.10",
-      "angular-mocks-legacy": "github:angular/bower-angular-mocks@~1.5.10",
+      "angular-legacy": "github:angular/bower-angular@~1.6.6",
+      "angular-mocks": "github:angular/bower-angular-mocks@~1.6.6",
+      "angular-mocks-legacy": "github:angular/bower-angular-mocks@~1.6.6",
       "babel": "npm:babel-core@^5.8.24",
       "babel-runtime": "npm:babel-runtime@^5.8.24",
       "core-js": "npm:core-js@^1.1.4"
     }
-  }
+  },
+  "dependencies": {}
 }
