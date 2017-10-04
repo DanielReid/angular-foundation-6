@@ -3026,6 +3026,8 @@
                                 scope.tt_isOpen = true;
                                 scope.$digest(); // digest required as $apply is not called
 
+                                $body.on('click', closeOnClick);
+
                                 // Return positioning function as promise callback for correct
                                 // positioning after draw.
                                 return positionTooltip;
@@ -3038,6 +3040,7 @@
 
                                 //if tooltip is going to be shown after delay, we must cancel this
                                 $timeout.cancel(popupTimeout);
+                                $body.off('click', closeOnClick);
                                 removeTooltip();
                             }
 
