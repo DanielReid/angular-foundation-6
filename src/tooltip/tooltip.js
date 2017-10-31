@@ -114,7 +114,6 @@ angular.module('mm.foundation.tooltip', ['mm.foundation.position', 'mm.foundatio
                     var tooltipLinker = $compile(template);
 
                     return function link(scope, element, attrs) {
-                        const $body = angular.element(document.querySelector('body'));
                         var tooltip;
                         var popupTimeout;
                         var appendToBody = angular.isDefined(options.appendToBody) ? options.appendToBody : false;
@@ -133,12 +132,6 @@ angular.module('mm.foundation.tooltip', ['mm.foundation.position', 'mm.foundatio
                             ttWidth = tooltip.prop('offsetWidth');
                             ttHeight = tooltip.prop('offsetHeight');
 
-                            var scrollTop = $window.pageYOffset;
-                            if (scope.tt_placement === 'top' && (position.top - scrollTop - ttHeight - 20) < 0) {
-                              scope.tt_placement = 'bottom';
-                            }
-
-                            var tt_remSize = parseFloat(getComputedStyle(tooltip[0]).fontSize);
                             // Calculate the tooltip's top and left coordinates to center it with
                             // this directive.
                             switch (scope.tt_placement) {
@@ -151,19 +144,19 @@ angular.module('mm.foundation.tooltip', ['mm.foundation.position', 'mm.foundatio
                                 case 'bottom':
                                     ttPosition = {
                                         top: position.top + position.height + 10,
-                                        left: position.left - (2.25* tt_remSize) + (element[0].offsetWidth / 2) 
+                                        left: position.left - ttWidth / 2 + position.width / 2,
                                     };
                                     break;
                                 case 'left':
                                     ttPosition = {
                                         top: position.top + position.height / 2 - ttHeight / 2,
-                                        left: position.left - ttWidth - 10
+                                        left: position.left - ttWidth - 10,
                                     };
                                     break;
-                                default: //top
+                                default:
                                     ttPosition = {
                                         top: position.top - ttHeight - 10,
-                                        left: position.left - (2.25* tt_remSize) + (element[0].offsetWidth / 2)
+                                        left: position.left - ttWidth / 2 + position.width / 2,
                                     };
                                     break;
                             }
@@ -201,21 +194,6 @@ angular.module('mm.foundation.tooltip', ['mm.foundation.position', 'mm.foundatio
                             } else {
                                 show()();
                             }
-                        }
-                        
-                        function closeOnClick(e) {
-                          const elementContents = Array.prototype.slice.apply(element[0].querySelectorAll('*'));
-
-                          if (!elementContents.length) {
-                            return;
-                          }
-
-                          const isOuterElement = elementContents.every((node) => node !== e.target);
-
-                          if (isOuterElement) {
-                            hide();
-                            scope.$apply();
-                          }
                         }
 
                         function hideTooltipBind() {
@@ -258,8 +236,6 @@ angular.module('mm.foundation.tooltip', ['mm.foundation.position', 'mm.foundatio
                             scope.tt_isOpen = true;
                             scope.$digest(); // digest required as $apply is not called
 
-                            $body.on('click', closeOnClick);
-
                             // Return positioning function as promise callback for correct
                             // positioning after draw.
                             return positionTooltip;
@@ -272,7 +248,6 @@ angular.module('mm.foundation.tooltip', ['mm.foundation.position', 'mm.foundatio
 
                             //if tooltip is going to be shown after delay, we must cancel this
                             $timeout.cancel(popupTimeout);
-                            $body.off('click', closeOnClick);
                             removeTooltip();
                         }
 
