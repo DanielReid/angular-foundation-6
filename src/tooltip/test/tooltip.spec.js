@@ -30,7 +30,8 @@ describe('tooltip', function() {
 
         scope = $rootScope;
         $compile(elmBody)(scope);
-        angular.element(document).find('body').append(elmBody);
+        //place element in test body so spacing calculations can be done
+        angular.element(document).find('body').append(elmBody); 
         scope.$digest();
         elm = elmBody.find('span');
         elmScope = elm.scope();
@@ -121,7 +122,7 @@ describe('tooltip', function() {
         expect(elm.attr('alt')).toBe(scope.alt);
 
         ttScope = angular.element(elmBody.children()[1]).isolateScope();
-        expect(ttScope.placement).toBe('bottom'); // no space at top
+        expect(ttScope.placement).toBe('bottom'); // no space above
         expect(ttScope.content).toBe(scope.tooltipMsg);
 
         elm.triggerHandler('mouseout');
