@@ -20,6 +20,8 @@
     orbitBullets.$inject = ['$element'];
     orbitContainer.$inject = ['$element', '$interval', '$scope', '$swipe'];
     orbitSlide.$inject = ['$element'];
+    orbitPrevious.$inject = ['$element'];
+    orbitNext.$inject = ['$element'];
     Object.defineProperty(exports, "__esModule", {
         value: true
     });
@@ -70,7 +72,7 @@
      * angular-foundation-6
      * http://circlingthesun.github.io/angular-foundation-6/
     
-     * Version: 0.11.16 - 2017-11-08
+     * Version: 0.11.21 - 2018-07-10
      * License: MIT
      * (c) 
      */
@@ -839,7 +841,7 @@
             if ($ctrl.closeOnClick) {
                 $body.off('click', closeOnClick);
             }
-            deRegisterCloseListener();
+            deRegisterCloseListener && deRegisterCloseListener();
         }
 
         function open(e) {
@@ -1211,6 +1213,15 @@
         var openedWindows = new StackedMap();
         var $modalStack = {};
 
+        var KEBAB_CASE_REGEXP = /[A-Z]/g;
+
+        function kebabCase(name) {
+            var separator = '-';
+            return name.replace(KEBAB_CASE_REGEXP, function (letter, pos) {
+                return (pos ? separator : '') + letter.toLowerCase();
+            });
+        }
+
         function backdropIndex() {
             var topBackdropIndex = -1;
             var opened = openedWindows.keys();
@@ -1429,12 +1440,26 @@
                 classes.push('without-overlay');
             }
 
+            var content = void 0;
+            if (options.component) {
+                content = document.createElement(kebabCase(options.component.name));
+                content = angular.element(content);
+                content.attr({
+                    resolve: '$resolve',
+                    'modal-instance': '$modalInstance',
+                    close: '$close($value)',
+                    dismiss: '$dismiss($value)'
+                });
+            } else {
+                content = options.content;
+            }
+
             var modalDomEl = angular.element('<div modal-window></div>').attr({
                 'window-class': classes.join(' '),
                 index: openedWindows.length() - 1
             });
 
-            modalDomEl.html(options.content);
+            modalDomEl.append(content);
             $compile(modalDomEl)(options.scope);
 
             openedWindows.top().value.modalDomEl = modalDomEl;
@@ -1499,7 +1524,7 @@
                     focusedElem.focus();
                     modalParent[0].scrollTop = y;
                 });
-            });
+            }, 100); // Dirty hack to work around angular's lazy compilation: https://github.com/angular/angular.js/issues/14343
         };
 
         $modalStack.reposition = function (modalInstance) {
@@ -1618,36 +1643,27 @@
                 modalOptions.resolve = modalOptions.resolve || {};
 
                 // verify options
-                if (!modalOptions.template && !modalOptions.templateUrl) {
-                    throw new Error('One of template or templateUrl options is required.');
+                if (!modalOptions.component && !modalOptions.template && !modalOptions.templateUrl) {
+                    throw new Error('One of component or template or templateUrl options is required.');
                 }
 
-                var templateAndResolvePromise = $q.all([getTemplatePromise(modalOptions)].concat(getResolvePromises(modalOptions.resolve)));
+                if (modalOptions.component && (modalOptions.template || modalOptions.templateUrl || modalOptions.controller)) {
+                    throw new Error('Either component or template options is required, not both.');
+                }
+
+                var templateAndResolvePromise = void 0;
+                if (modalOptions.component) {
+                    templateAndResolvePromise = $q.all(getResolvePromises(modalOptions.resolve));
+                } else {
+                    templateAndResolvePromise = $q.all([getTemplatePromise(modalOptions)].concat(getResolvePromises(modalOptions.resolve)));
+                }
 
                 var openedPromise = templateAndResolvePromise.then(function (tplAndVars) {
                     var modalScope = (modalOptions.scope || $rootScope).$new();
                     modalScope.$close = modalInstance.close;
                     modalScope.$dismiss = modalInstance.dismiss;
 
-                    var ctrlInstance = void 0;
-                    var ctrlLocals = {};
-                    var resolveIter = 1;
-
-                    // controllers
-                    if (modalOptions.controller) {
-                        ctrlLocals.$scope = modalScope;
-                        ctrlLocals.$modalInstance = modalInstance;
-                        angular.forEach(modalOptions.resolve, function (value, key) {
-                            ctrlLocals[key] = tplAndVars[resolveIter++];
-                        });
-
-                        ctrlInstance = $controller(modalOptions.controller, ctrlLocals);
-                        if (modalOptions.controllerAs) {
-                            modalScope[modalOptions.controllerAs] = ctrlInstance;
-                        }
-                    }
-
-                    return $modalStack.open(modalInstance, {
+                    var modal = {
                         scope: modalScope,
                         deferred: modalResultDeferred,
                         content: tplAndVars[0],
@@ -1657,7 +1673,41 @@
                         size: modalOptions.size,
                         closeOnClick: modalOptions.closeOnClick,
                         id: modalOptions.id
-                    });
+                    };
+
+                    var ctrlInstance = void 0;
+                    var ctrlLocals = {};
+
+                    if (modalOptions.component) {
+                        var component = {
+                            name: modalOptions.component,
+                            $scope: modalScope
+                        };
+
+                        // construct locals
+                        component.$scope.$modalInstance = modalInstance;
+                        component.$scope.$resolve = {};
+                        var resolveIter = 0;
+                        angular.forEach(modalOptions.resolve, function (value, key) {
+                            component.$scope.$resolve[key] = tplAndVars[resolveIter++];
+                        });
+
+                        modal.component = component;
+                    } else if (modalOptions.controller) {
+                        ctrlLocals.$scope = modalScope;
+                        ctrlLocals.$modalInstance = modalInstance;
+                        var _resolveIter = 1;
+                        angular.forEach(modalOptions.resolve, function (value, key) {
+                            ctrlLocals[key] = tplAndVars[_resolveIter++];
+                        });
+
+                        ctrlInstance = $controller(modalOptions.controller, ctrlLocals);
+                        if (modalOptions.controllerAs) {
+                            modalScope[modalOptions.controllerAs] = ctrlInstance;
+                        }
+                    }
+
+                    return $modalStack.open(modalInstance, modal);
                 }, function (reason) {
                     modalResultDeferred.reject(reason);
                     return $q.reject(reason);
@@ -1852,6 +1902,20 @@
             var pct = 100 * _this3.currentIdx / _this3.slides.length;
             $element.css({ transform: 'translateX(' + -pct + '%)' });
         };
+        this.prevState = function () {
+            $scope.$apply(function () {
+                if (_this3.currentIdx > 0) {
+                    _this3.activateState((_this3.currentIdx - 1) % _this3.slides.length);
+                } else {
+                    _this3.activateState(_this3.slides.length - 1);
+                }
+            });
+        };
+        this.nextState = function () {
+            $scope.$apply(function () {
+                _this3.activateState((_this3.currentIdx + 1) % _this3.slides.length);
+            });
+        };
         this.stopAutoPlay = function () {
             $interval.cancel(_this3.autoSlider);
             _this3.autoSlider = null;
@@ -1860,7 +1924,7 @@
             _this3.stopAutoPlay();
             _this3.autoSlider = $interval(function () {
                 _this3.activateState(++_this3.currentIdx % _this3.slides.length);
-            }, 5000);
+            }, _this3.cycleTime || 5000);
         };
         $element.on('mouseenter', this.stopAutoPlay);
         $element.on('mouseleave', this.restartTimer);
@@ -1929,6 +1993,30 @@
         };
     }
 
+    function orbitPrevious($element) {
+        'ngInject';
+
+        var vm = this;
+        $element.css({ cursor: 'pointer' });
+        this.$onInit = function () {
+            $element.on('click', function () {
+                vm.orbit.container.prevState();
+            });
+        };
+    }
+
+    function orbitNext($element) {
+        'ngInject';
+
+        var vm = this;
+        $element.css({ cursor: 'pointer' });
+        this.$onInit = function () {
+            $element.on('click', function () {
+                vm.orbit.container.nextState();
+            });
+        };
+    }
+
     angular.module('mm.foundation.orbit', ['ngTouch']).directive('orbit', function () {
         return {
             scope: {},
@@ -1937,7 +2025,9 @@
         };
     }).directive('orbitContainer', function () {
         return {
-            scope: {},
+            scope: {
+                cycleTime: '<'
+            },
             restrict: 'C',
             require: { orbit: '^^orbit' },
             controller: orbitContainer,
@@ -1950,6 +2040,24 @@
             restrict: 'C',
             require: { orbitContainer: '^^orbitContainer' },
             controller: orbitSlide,
+            controllerAs: 'vm',
+            bindToController: true
+        };
+    }).directive('orbitPrevious', function () {
+        return {
+            scope: {},
+            restrict: 'C',
+            require: { orbit: '^^orbit' },
+            controller: orbitPrevious,
+            controllerAs: 'vm',
+            bindToController: true
+        };
+    }).directive('orbitNext', function () {
+        return {
+            scope: {},
+            restrict: 'C',
+            require: { orbit: '^^orbit' },
+            controller: orbitNext,
             controllerAs: 'vm',
             bindToController: true
         };
@@ -2204,7 +2312,7 @@
     (function () {
         angular.module("mm.foundation.pagination").run(["$templateCache", function ($templateCache) {
             $templateCache.put("template/pagination/pager.html", "<ul class=\"pagination\">\n  <li ng-repeat=\"page in pages\" class=\"arrow\" ng-class=\"{unavailable: page.disabled, left: page.previous, right: page.next}\"><a ng-click=\"selectPage(page.number)\">{{page.text}}</a></li>\n</ul>\n");
-            $templateCache.put("template/pagination/pagination.html", "<ul class=\"pagination\" role=\"navigation\" aria-label=\"Pagination\">\n  <li ng-repeat=\"page in pages\"\n    ng-class=\"{\n        \'pagination-previous\': $first,\n        \'pagination-next\': $last,\n        current: page.active,\n        unavailable: page.disabled\n        }\">\n    <a ng-if=\"!page.active\" ng-click=\"selectPage(page.number)\">{{page.text}}</a>\n    <span ng-if=\"page.active\">{{page.text}}</span>\n  </li>\n</ul>\n");
+            $templateCache.put("template/pagination/pagination.html", "<ul class=\"pagination\" role=\"navigation\" aria-label=\"Pagination\">\n  <li ng-repeat=\"page in pages\"\n    ng-class=\"{\n        \'pagination-previous\': $first,\n        \'pagination-next\': $last,\n        current: page.active,\n        disabled: page.disabled\n        }\">\n    <a ng-if=\"!page.active\" ng-click=\"selectPage(page.number)\">{{page.text}}</a>\n    <span ng-if=\"page.active\">{{page.text}}</span>\n  </li>\n</ul>\n");
         }]);
     })();
     angular.module('mm.foundation.position', [])
